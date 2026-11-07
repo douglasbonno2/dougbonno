@@ -1,0 +1,2 @@
+e043c3b095dc02f39a66185659bd1911906c8a8d3b60c90811746cab881386c4  taiko-corrigir-ubuntu-v3.ps1
+b441ba9bac03fded03202dfe7ca3812a47d480228f12dd6e8b82ed9f2fe24d14  platform-taiko-linux-v3.lz4
