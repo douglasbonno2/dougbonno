@@ -53,6 +53,18 @@ function Get-AdbChecked {
 function Test-RecoveryReady {
     $anterior = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
+    try {
+        $dispositivos = & $Adb devices -l 2>$null
+        $codigoLista = $LASTEXITCODE
+    }
+    finally { $ErrorActionPreference = $anterior }
+    if ($codigoLista -eq 0) {
+        foreach ($linha in $dispositivos) {
+            if ($linha -match ('^' + [regex]::Escape($Serial) + '\s+recovery(?:\s|$)')) { return $true }
+        }
+    }
+    $anterior = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
     try { $estado = & $Adb -s $Serial get-state 2>$null; $codigo = $LASTEXITCODE }
     finally { $ErrorActionPreference = $anterior }
     if ($codigo -ne 0 -or (($estado -join '').Trim() -ne 'device')) { return $false }
