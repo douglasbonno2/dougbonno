@@ -25,17 +25,33 @@ $Fastboot = $FastbootCmd.Source
 
 function Invoke-Checked {
     param([string]$Programa, [string[]]$Argumentos)
-    & $Programa @Argumentos
-    if ($LASTEXITCODE -ne 0) {
-        throw "Falhou ($LASTEXITCODE): $Programa $($Argumentos -join ' ')"
+    $preferencia = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & $Programa @Argumentos
+        $codigo = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $preferencia
+    }
+    if ($codigo -ne 0) {
+        throw "Falhou ($codigo): $Programa $($Argumentos -join ' ')"
     }
 }
 
 function Get-Checked {
     param([string]$Programa, [string[]]$Argumentos)
-    $saida = & $Programa @Argumentos 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "Falhou ($LASTEXITCODE): $Programa $($Argumentos -join ' ')`n$($saida -join "`n")"
+    $preferencia = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $saida = & $Programa @Argumentos 2>&1
+        $codigo = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $preferencia
+    }
+    if ($codigo -ne 0) {
+        throw "Falhou ($codigo): $Programa $($Argumentos -join ' ')`n$($saida -join "`n")"
     }
     return (($saida -join "`n").Trim())
 }
@@ -54,8 +70,16 @@ function Assert-Image {
 }
 
 function Test-Adb {
-    $saida = & $Adb -s $Serial get-state 2>$null
-    return ($LASTEXITCODE -eq 0 -and (($saida -join '').Trim() -eq 'device'))
+    $preferencia = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $saida = & $Adb -s $Serial get-state 2>$null
+        $codigo = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $preferencia
+    }
+    return ($codigo -eq 0 -and (($saida -join '').Trim() -eq 'device'))
 }
 
 function Wait-AdbBoot {
@@ -63,8 +87,16 @@ function Wait-AdbBoot {
     Write-Host "Aguardando Android/ADB por ate $Segundos segundos..."
     for ($n = 1; $n -le $Segundos; $n++) {
         if (Test-Adb) {
-            $completo = & $Adb -s $Serial shell getprop sys.boot_completed 2>$null
-            if ($LASTEXITCODE -eq 0 -and (($completo -join '').Trim() -eq '1')) { return }
+            $preferencia = $ErrorActionPreference
+            $ErrorActionPreference = 'Continue'
+            try {
+                $completo = & $Adb -s $Serial shell getprop sys.boot_completed 2>$null
+                $codigo = $LASTEXITCODE
+            }
+            finally {
+                $ErrorActionPreference = $preferencia
+            }
+            if ($codigo -eq 0 -and (($completo -join '').Trim() -eq '1')) { return }
         }
         if (($n % 15) -eq 0) { Write-Host "  $n s..." }
         Start-Sleep -Seconds 1
@@ -73,7 +105,14 @@ function Wait-AdbBoot {
 }
 
 function Test-Fastboot {
-    $linhas = & $Fastboot devices 2>$null
+    $preferencia = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $linhas = & $Fastboot devices 2>$null
+    }
+    finally {
+        $ErrorActionPreference = $preferencia
+    }
     foreach ($linha in $linhas) {
         $partes = ($linha.ToString().Trim() -split '\s+')
         if ($partes.Count -gt 0 -and $partes[0].ToLowerInvariant() -eq $Serial.ToLowerInvariant()) { return $true }
