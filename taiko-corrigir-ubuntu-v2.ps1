@@ -285,7 +285,13 @@ function Assert-RecoveryState {
     if ($bootInfo -notmatch '(?m)^PARTNAME=boot_a\s*$' -or $vendorInfo -notmatch '(?m)^PARTNAME=vendor_boot_a\s*$') {
         throw "Mapeamento fisico inesperado.`nSdc32:`n$bootInfo`nSdc33:`n$vendorInfo"
     }
-    $hashes = Get-Checked $Adb @('-s', $Serial, 'shell', 'sha256sum', '/dev/block/sdc32', '/dev/block/sdc33')
+    $bootDev = ((Get-Checked $Adb @('-s', $Serial, 'shell', 'cat', '/sys/class/block/sdc32/dev')).Trim() -split ':')
+    $vendorDev = ((Get-Checked $Adb @('-s', $Serial, 'shell', 'cat', '/sys/class/block/sdc33/dev')).Trim() -split ':')
+    if ($bootDev.Count -ne 2 -or $vendorDev.Count -ne 2) { throw 'Major/minor das particoes nao encontrado.' }
+    Invoke-Checked $Adb @('-s', $Serial, 'shell', 'rm', '-f', '/tmp/taiko-boot_a', '/tmp/taiko-vendor_boot_a')
+    Invoke-Checked $Adb @('-s', $Serial, 'shell', 'mknod', '/tmp/taiko-boot_a', 'b', $bootDev[0], $bootDev[1])
+    Invoke-Checked $Adb @('-s', $Serial, 'shell', 'mknod', '/tmp/taiko-vendor_boot_a', 'b', $vendorDev[0], $vendorDev[1])
+    $hashes = Get-Checked $Adb @('-s', $Serial, 'shell', 'sha256sum', '/tmp/taiko-boot_a', '/tmp/taiko-vendor_boot_a')
     if ($hashes -notmatch $HashBootV1 -or $hashes -notmatch $HashVendorV1) {
         throw "boot/vendor atuais nao sao a instalacao v1 esperada.`n$hashes"
     }
@@ -320,7 +326,7 @@ function Prepare-V2 {
 
 function Show-Status {
     if (Test-Adb) {
-        Write-Host (Get-Checked $Adb @('-s', $Serial, 'shell', 'sha256sum', '/dev/block/sdc32', '/dev/block/sdc33'))
+        Write-Host (Get-Checked $Adb @('-s', $Serial, 'shell', 'sha256sum', '/tmp/taiko-boot_a', '/tmp/taiko-vendor_boot_a'))
     } elseif (Test-Fastboot) { Write-Host 'Taiko no Fastboot.' }
     else { Write-Host 'Taiko nao detectado.' }
 }
