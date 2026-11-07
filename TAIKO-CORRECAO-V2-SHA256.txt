@@ -1,0 +1,1 @@
+5b879bb8de5475fee42d5296d07e1b1eb2d0c89887a358759b4bc66ed31d11ea  taiko-corrigir-ubuntu-v2.ps1
