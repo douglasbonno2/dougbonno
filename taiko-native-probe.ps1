@@ -173,12 +173,14 @@ function Build-BootProbe {
     Assert-PartitionImage $BootOriginal 'ANDROID!'
     $dados = [IO.File]::ReadAllBytes($BootOriginal)
     if ([BitConverter]::ToUInt32($dados, 40) -ne 4) { throw 'boot_a nao usa cabecalho v4.' }
-    $cmd = [Text.Encoding]::ASCII.GetBytes('loglevel=8 rdinit=/p')
+    # LK reads the v4 cmdline at offset 44 and also uses the legacy view at
+    # offset 64. Keep the actionable parameter at that proven legacy offset.
+    $cmd = [Text.Encoding]::ASCII.GetBytes('loglevel=8          rdinit=/p')
     [Array]::Clear($dados, 44, 1536)
     [Array]::Copy($cmd, 0, $dados, 44, $cmd.Length)
     [IO.File]::WriteAllBytes($BootProbe, $dados)
     Assert-PartitionImage $BootProbe 'ANDROID!'
-    if ([Text.Encoding]::ASCII.GetString($dados, 44, $cmd.Length) -ne 'loglevel=8 rdinit=/p') { throw 'Cmdline probe incorreta.' }
+    if ([Text.Encoding]::ASCII.GetString($dados, 44, $cmd.Length) -ne 'loglevel=8          rdinit=/p') { throw 'Cmdline probe incorreta.' }
 }
 
 function Build-VendorProbe {
