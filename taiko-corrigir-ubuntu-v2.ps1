@@ -280,7 +280,12 @@ function Assert-RecoveryState {
     if (-not (Test-Adb)) { throw 'TWRP nao esta conectado no ADB.' }
     $produto = (Get-Checked $Adb @('-s', $Serial, 'shell', 'getprop', 'ro.product.device')).Trim()
     if ($produto -and $produto -ne 'taiko') { throw "Produto inesperado: $produto" }
-    $hashes = Get-Checked $Adb @('-s', $Serial, 'shell', 'sha256sum', '/dev/block/by-name/boot_a', '/dev/block/by-name/vendor_boot_a')
+    $bootInfo = Get-Checked $Adb @('-s', $Serial, 'shell', 'cat', '/sys/class/block/sdc32/uevent')
+    $vendorInfo = Get-Checked $Adb @('-s', $Serial, 'shell', 'cat', '/sys/class/block/sdc33/uevent')
+    if ($bootInfo -notmatch '(?m)^PARTNAME=boot_a\s*$' -or $vendorInfo -notmatch '(?m)^PARTNAME=vendor_boot_a\s*$') {
+        throw "Mapeamento fisico inesperado.`nSdc32:`n$bootInfo`nSdc33:`n$vendorInfo"
+    }
+    $hashes = Get-Checked $Adb @('-s', $Serial, 'shell', 'sha256sum', '/dev/block/sdc32', '/dev/block/sdc33')
     if ($hashes -notmatch $HashBootV1 -or $hashes -notmatch $HashVendorV1) {
         throw "boot/vendor atuais nao sao a instalacao v1 esperada.`n$hashes"
     }
@@ -315,7 +320,7 @@ function Prepare-V2 {
 
 function Show-Status {
     if (Test-Adb) {
-        Write-Host (Get-Checked $Adb @('-s', $Serial, 'shell', 'sha256sum', '/dev/block/by-name/boot_a', '/dev/block/by-name/vendor_boot_a'))
+        Write-Host (Get-Checked $Adb @('-s', $Serial, 'shell', 'sha256sum', '/dev/block/sdc32', '/dev/block/sdc33'))
     } elseif (Test-Fastboot) { Write-Host 'Taiko no Fastboot.' }
     else { Write-Host 'Taiko nao detectado.' }
 }
