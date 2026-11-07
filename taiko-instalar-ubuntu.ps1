@@ -327,7 +327,7 @@ function Assert-UbuntuImage {
         $cabecalho = New-Object byte[] 4
         [void]$stream.Read($cabecalho, 0, 4)
     } finally { $stream.Dispose() }
-    if ([BitConverter]::ToUInt32($cabecalho, 0) -ne 0xed26ff3a) { throw 'Imagem nao esta no formato Android sparse.' }
+    if ([BitConverter]::ToString($cabecalho) -ne '3A-FF-26-ED') { throw 'Imagem nao esta no formato Android sparse.' }
     Write-Host "Imagem Ubuntu verificada: $Imagem"
 }
 
