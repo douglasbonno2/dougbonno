@@ -7,7 +7,6 @@ $ErrorActionPreference = 'Stop'
 $Serial = 'n7jzceuwof4xeiwk'
 $TamanhoParticao = 67108864
 $HashBootPermitido = '1a7ce84bc588754a15f39366727e86cc9743ca7704d7aba254f29f2d2ac0fc36'
-$HashRecoveryTwrp = '33b9c99aaa0a553e933dac9e93b47b751800e640c3577e11deb66c08a6239c27'
 $OverlayBase64 = 'AiFMGNsAAAByMDcwNzAxMAEAAQgAXzgxZTgwAQADGjEPAD82ZjABABMUMgkA8FdwACMhL3N5c3RlbS9iaW4vc2gKZWNobyAnPDY+VEFJS09fTkFUSVZFX1BST0JFOiBjdXN0b20gUElEMSBleGVjdXRlZDsgY29udGludWluZyBBbmRyb2lkJyA+IC9kZXYva21zZwoqAIkgL2luaXQKAOAAETIFAD8xODDgABMfMCgADRNiCAAUORkABIMAGgB4AB8zUAAUDwEAHRRiCQC/VFJBSUxFUiEhIQABABdQAAAAAAA='
 $HashOverlay = '736323d940194525107e2607da8e794e7d825ea799b665a9b367ec46a6a15ee6'
 $Pasta = Join-Path $PSScriptRoot 'Taiko-Native-Probe'
@@ -214,6 +213,7 @@ function Build-VendorProbe {
             Size = [int][BitConverter]::ToUInt32($dados, $pos)
             Offset = [int][BitConverter]::ToUInt32($dados, $pos + 4)
             Type = [int][BitConverter]::ToUInt32($dados, $pos + 8)
+            Name = ([Text.Encoding]::ASCII.GetString($dados, $pos + 12, 32)).Trim([char]0)
             TableBytes = $dados[$pos..($pos + $entrySize - 1)]
         }
         if ($item.Offset + $item.Size -gt $ramdiskSize) { throw "Entrada ramdisk $n fora dos limites." }
@@ -223,8 +223,10 @@ function Build-VendorProbe {
     }
     if ($platformIndex -lt 0 -or $recoveryIndex -lt 0) { throw 'Fragmentos platform/recovery nao encontrados.' }
     $rec = $entries[$recoveryIndex]
+    if ($rec.Name -ne 'recovery') { throw "Nome inesperado do fragmento recovery: $($rec.Name)" }
+    if ([BitConverter]::ToUInt32($dados, $ramdiskStart + $rec.Offset) -ne 0x184c2102) { throw 'Recovery atual nao inicia com legacy LZ4.' }
     $hashRecovery = Get-BytesHash $dados ($ramdiskStart + $rec.Offset) $rec.Size
-    if ($hashRecovery -ne $HashRecoveryTwrp) { throw "Recovery TWRP inesperado: $hashRecovery" }
+    $script:HashRecoveryAtual = $hashRecovery
 
     $novoRamdiskSize = $ramdiskSize + $overlay.Length
     $novoDtbStart = [int](Align-Up ($ramdiskStart + $novoRamdiskSize) $pagina)
@@ -263,7 +265,7 @@ function Build-VendorProbe {
     $overlayOffset = $ramdiskStart + $plat.Offset + $plat.Size - $overlay.Length
     if ((Get-BytesHash $novo $overlayOffset $overlay.Length) -ne $HashOverlay) { throw 'Overlay nao foi preservado no candidato.' }
     $recNovo = $entries[$recoveryIndex]
-    if ((Get-BytesHash $novo ($ramdiskStart + $recNovo.Offset) $recNovo.Size) -ne $HashRecoveryTwrp) { throw 'Recovery mudou durante a reconstrucao.' }
+    if ((Get-BytesHash $novo ($ramdiskStart + $recNovo.Offset) $recNovo.Size) -ne $hashRecovery) { throw 'Recovery atual mudou durante a reconstrucao.' }
     [IO.File]::WriteAllBytes($VendorProbe, $novo)
     Assert-PartitionImage $VendorProbe 'VNDRBOOT'
 }
@@ -287,12 +289,14 @@ function Prepare-Probe {
         "$HashBootOriginal  boot_a-original.img",
         "$HashVendorOriginal  vendor_boot_a-original.img",
         "$HashBootProbe  boot_a-probe.img",
-        "$HashVendorProbe  vendor_boot_a-probe.img"
+        "$HashVendorProbe  vendor_boot_a-probe.img",
+        "$HashRecoveryAtual  recovery-fragment-preservado"
     ) | Set-Content -Encoding ASCII (Join-Path $Pasta 'IMAGENS-SHA256.txt')
     Write-Host "boot original:   $HashBootOriginal"
     Write-Host "vendor original: $HashVendorOriginal"
     Write-Host "boot probe:      $HashBootProbe"
     Write-Host "vendor probe:    $HashVendorProbe"
+    Write-Host "TWRP preservado: $HashRecoveryAtual"
 }
 
 function Flash-Probe {
