@@ -50,19 +50,25 @@ function Get-AdbChecked {
     return (($saida -join "`n").Trim())
 }
 
+function Test-RecoveryReady {
+    $anterior = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { $estado = & $Adb -s $Serial get-state 2>$null; $codigo = $LASTEXITCODE }
+    finally { $ErrorActionPreference = $anterior }
+    if ($codigo -ne 0 -or (($estado -join '').Trim() -ne 'device')) { return $false }
+    try {
+        $modo = Get-AdbChecked @('-s', $Serial, 'shell', 'getprop', 'ro.bootmode')
+        $produto = Get-AdbChecked @('-s', $Serial, 'shell', 'getprop', 'ro.product.device')
+        $twrp = Get-AdbChecked @('-s', $Serial, 'shell', 'getprop', 'ro.twrp.version')
+        return ($produto.Trim() -match 'taiko' -and ($modo -match 'recovery' -or $twrp.Trim().Length -gt 0))
+    }
+    catch { return $false }
+}
+
 function Wait-Recovery {
     param([int]$Segundos = 120)
     for ($n = 1; $n -le $Segundos; $n++) {
-        $anterior = $ErrorActionPreference
-        $ErrorActionPreference = 'Continue'
-        try { $estado = & $Adb -s $Serial get-state 2>$null; $codigo = $LASTEXITCODE }
-        finally { $ErrorActionPreference = $anterior }
-        if ($codigo -eq 0 -and (($estado -join '').Trim() -eq 'device')) {
-            $modo = Get-AdbChecked @('-s', $Serial, 'shell', 'getprop', 'ro.bootmode')
-            $produto = Get-AdbChecked @('-s', $Serial, 'shell', 'getprop', 'ro.product.device')
-            $twrp = Get-AdbChecked @('-s', $Serial, 'shell', 'getprop', 'ro.twrp.version')
-            if ($produto.Trim() -eq 'taiko' -and ($modo -match 'recovery' -or $twrp.Trim().Length -gt 0)) { return }
-        }
+        if (Test-RecoveryReady) { return }
         if (($n % 15) -eq 0) { Write-Host "  aguardando recovery: $n s..." }
         Start-Sleep -Seconds 1
     }
@@ -145,8 +151,13 @@ function Copy-PartitionGzip {
     }
 }
 
-Write-Host 'Reiniciando no TWRP para copiar os blocos em modo somente leitura...'
-Invoke-AdbChecked @('-s', $Serial, 'reboot', 'recovery')
+if (Test-RecoveryReady) {
+    Write-Host 'TWRP ja esta conectado; iniciando backup somente leitura...'
+}
+else {
+    Write-Host 'Reiniciando no TWRP para copiar os blocos em modo somente leitura...'
+    Invoke-AdbChecked @('-s', $Serial, 'reboot', 'recovery')
+}
 Wait-Recovery
 
 $id = Get-AdbChecked @('-s', $Serial, 'shell', 'id')
