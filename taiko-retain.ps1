@@ -5,8 +5,12 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $Serial = 'n7jzceuwof4xeiwk'
-$HashOriginal = 'e0b8548be3703338bdff8d141daed234e34fb84e1f26e3f149d30147ce6feacd'
-$HashDiagnostico = '0f4a8f995db8b6afb25333a2a6158a87b261d05c24b27adaafe53077e4aa19d1'
+$HashesBasePermitidos = @(
+    'e0b8548be3703338bdff8d141daed234e34fb84e1f26e3f149d30147ce6feacd',
+    '1a7ce84bc588754a15f39366727e86cc9743ca7704d7aba254f29f2d2ac0fc36'
+)
+$HashBase = $null
+$HashDiagnosticoAtual = $null
 $TamanhoBoot = 67108864
 $Pasta = Join-Path $PSScriptRoot 'Taiko-Retain'
 $Original = Join-Path $Pasta 'boot-original-taiko.img'
@@ -67,6 +71,29 @@ function Assert-Image {
     if ((Get-Item -LiteralPath $Arquivo).Length -ne $TamanhoBoot) { throw "Tamanho incorreto: $Arquivo" }
     $obtido = Get-HashLower $Arquivo
     if ($obtido -ne $Hash) { throw "Hash incorreto em $Arquivo`nEsperado: $Hash`nObtido:  $obtido" }
+}
+
+function Set-BaseFromFile {
+    Assert-ImageSizeAndHeader $Original
+    $obtido = Get-HashLower $Original
+    if ($HashesBasePermitidos -notcontains $obtido) {
+        throw "Backup de boot_a nao pertence a uma base permitida: $obtido"
+    }
+    $script:HashBase = $obtido
+}
+
+function Assert-ImageSizeAndHeader {
+    param([string]$Arquivo)
+    if (-not (Test-Path -LiteralPath $Arquivo)) { throw "Arquivo ausente: $Arquivo" }
+    if ((Get-Item -LiteralPath $Arquivo).Length -ne $TamanhoBoot) { throw "Tamanho incorreto: $Arquivo" }
+    $f = [IO.File]::OpenRead($Arquivo)
+    try {
+        $cabecalho = New-Object byte[] 44
+        if ($f.Read($cabecalho, 0, 44) -ne 44) { throw 'Nao foi possivel ler o cabecalho boot.' }
+    }
+    finally { $f.Dispose() }
+    if ([Text.Encoding]::ASCII.GetString($cabecalho, 0, 8) -ne 'ANDROID!') { throw 'Cabecalho boot invalido.' }
+    if ([BitConverter]::ToUInt32($cabecalho, 40) -ne 4) { throw 'Versao de cabecalho boot inesperada.' }
 }
 
 function Test-Adb {
@@ -178,14 +205,15 @@ function Prepare-Diagnostic {
     $flags = (Get-RootShell 'od -An -tx1 -j120 -N4 /dev/block/by-name/vbmeta_a').ToLowerInvariant() -replace '\s', ''
     if ($flags -ne '00000003') { throw "Flags AVB inesperadas: $flags" }
     $hashFisico = ((Get-RootShell 'sha256sum /dev/block/by-name/boot_a') -split '\s+')[0].ToLowerInvariant()
-    if ($hashFisico -ne $HashOriginal) {
-        throw "boot_a nao e o original conhecido.`nEsperado: $HashOriginal`nObtido:  $hashFisico"
+    if ($HashesBasePermitidos -notcontains $hashFisico) {
+        throw "boot_a nao pertence a uma base conhecida e segura.`nObtido: $hashFisico"
     }
+    $script:HashBase = $hashFisico
 
     Write-Host 'Copiando boot_a original para backup local...'
     Get-RootShell 'dd if=/dev/block/by-name/boot_a of=/data/local/tmp/boot-original-taiko.img bs=4M 2>/dev/null && chmod 0644 /data/local/tmp/boot-original-taiko.img' | Out-Null
     Invoke-Checked $Adb @('-s', $Serial, 'pull', '/data/local/tmp/boot-original-taiko.img', $Original)
-    Assert-Image $Original $HashOriginal
+    Assert-Image $Original $HashBase
 
     Write-Host 'Construindo imagem retain_initrd a partir do backup verificado...'
     $dados = [IO.File]::ReadAllBytes($Original)
@@ -195,14 +223,23 @@ function Prepare-Diagnostic {
     [Array]::Clear($dados, 44, 1536)
     [Array]::Copy($argumento, 0, $dados, 44, $argumento.Length)
     [IO.File]::WriteAllBytes($Diagnostico, $dados)
-    Assert-Image $Diagnostico $HashDiagnostico
+    Assert-ImageSizeAndHeader $Diagnostico
+    $cmdline = [IO.File]::ReadAllBytes($Diagnostico)[44..76]
+    if ([Text.Encoding]::ASCII.GetString($cmdline) -ne 'loglevel=8          retain_initrd') { throw 'Cmdline diagnostica incorreta.' }
+    $script:HashDiagnosticoAtual = Get-HashLower $Diagnostico
+    if ($HashDiagnosticoAtual -eq $HashBase) { throw 'Imagem diagnostica nao foi modificada.' }
+    "$HashBase  boot-original-taiko.img`r`n$HashDiagnosticoAtual  boot-retain-diagnostico.img" |
+        Set-Content -Encoding ASCII (Join-Path $Pasta 'IMAGENS-SHA256.txt')
     Write-Host "Backup:      $Original"
     Write-Host "Diagnostico: $Diagnostico"
+    Write-Host "Base SHA256: $HashBase"
+    Write-Host "Diag SHA256: $HashDiagnosticoAtual"
 }
 
 function Flash-Diagnostic {
-    Assert-Image $Original $HashOriginal
-    Assert-Image $Diagnostico $HashDiagnostico
+    if (-not $HashBase -or -not $HashDiagnosticoAtual) { throw 'Hashes da execucao nao foram inicializados.' }
+    Assert-Image $Original $HashBase
+    Assert-Image $Diagnostico $HashDiagnosticoAtual
     Enter-Fastboot
     Assert-FastbootTarget
     if ((Get-FastbootVar 'current-slot') -ne 'a') { throw 'Teste permitido somente com slot a ativo.' }
@@ -215,7 +252,7 @@ function Flash-Diagnostic {
 function Collect-Initrd {
     if (-not (Test-Adb)) { throw 'ADB indisponivel para coleta.' }
     $hashFisico = ((Get-RootShell 'sha256sum /dev/block/by-name/boot_a') -split '\s+')[0].ToLowerInvariant()
-    if ($hashFisico -ne $HashDiagnostico) { throw "Imagem diagnostica nao esta em boot_a: $hashFisico" }
+    if ($hashFisico -ne $HashDiagnosticoAtual) { throw "Imagem diagnostica nao esta em boot_a: $hashFisico" }
 
     $info = @()
     $info += 'DATE=' + (Get-Checked $Adb @('-s', $Serial, 'shell', 'date'))
@@ -240,7 +277,8 @@ function Collect-Initrd {
 }
 
 function Restore-Original {
-    Assert-Image $Original $HashOriginal
+    Set-BaseFromFile
+    Assert-Image $Original $HashBase
     Enter-Fastboot
     Assert-FastbootTarget
     $slot = Get-FastbootVar 'current-slot'
@@ -251,7 +289,7 @@ function Restore-Original {
     Invoke-Checked $Fastboot @('-s', $Serial, 'reboot')
     Wait-AdbBoot 180
     $hashFisico = ((Get-RootShell 'sha256sum /dev/block/by-name/boot_a') -split '\s+')[0].ToLowerInvariant()
-    if ($hashFisico -ne $HashOriginal) { throw "Restauracao nao confirmou hash original: $hashFisico" }
+    if ($hashFisico -ne $HashBase) { throw "Restauracao nao confirmou o hash da base: $hashFisico" }
     & $Adb -s $Serial shell -n "su -mm -c 'rm -f /data/local/tmp/boot-original-taiko.img /data/local/tmp/taiko-loader-initrd.bin /data/local/tmp/taiko-retain-dmesg.txt /data/local/tmp/taiko-retain-pstore.txt'" | Out-Null
     Write-Host 'RESTAURACAO CONFIRMADA. Android voltou com boot_a original.' -ForegroundColor Green
 }

@@ -11,3 +11,7 @@ Diagnóstico controlado do Redmi Pad 2 `taiko`. O script:
 
 Não formata nem grava userdata, system, vendor_boot ou vbmeta. Se o diagnóstico entrar em bootloop,
 entre manualmente em Fastboot e execute o mesmo script com `-Acao restaurar`.
+
+A base aceita também o `boot_a` Magisk previamente instalado, hash
+`1a7ce84bc588754a15f39366727e86cc9743ca7704d7aba254f29f2d2ac0fc36`;
+o backup e a restauração preservam exatamente a base encontrada.
