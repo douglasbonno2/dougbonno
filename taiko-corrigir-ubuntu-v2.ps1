@@ -279,7 +279,7 @@ function Build-VendorProbe {
 function Assert-RecoveryState {
     if (-not (Test-Adb)) { throw 'TWRP nao esta conectado no ADB.' }
     $produto = (Get-Checked $Adb @('-s', $Serial, 'shell', 'getprop', 'ro.product.device')).Trim()
-    if ($produto -ne 'taiko') { throw "Produto inesperado: $produto" }
+    if ($produto -and $produto -ne 'taiko') { throw "Produto inesperado: $produto" }
     $hashes = Get-Checked $Adb @('-s', $Serial, 'shell', 'sha256sum', '/dev/block/by-name/boot_a', '/dev/block/by-name/vendor_boot_a')
     if ($hashes -notmatch $HashBootV1 -or $hashes -notmatch $HashVendorV1) {
         throw "boot/vendor atuais nao sao a instalacao v1 esperada.`n$hashes"
