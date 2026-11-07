@@ -83,7 +83,8 @@ function Test-Adb {
     $ErrorActionPreference = 'Continue'
     try { $saida = & $Adb -s $Serial get-state 2>$null; $codigo = $LASTEXITCODE }
     finally { $ErrorActionPreference = $anterior }
-    return ($codigo -eq 0 -and (($saida -join '').Trim() -eq 'device'))
+    $estado = (($saida -join '').Trim())
+    return ($codigo -eq 0 -and ($estado -eq 'device' -or $estado -eq 'recovery'))
 }
 
 function Test-Fastboot {
