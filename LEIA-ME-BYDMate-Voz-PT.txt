@@ -1,0 +1,22 @@
+BYDMate Voz PT — versão experimental baseada na 4.4.1
+
+Alterações:
+- Reconhecimento local: Whisper Tiny multilíngue, explicitamente configurado para português (pt) e transcrição, sem tradução para inglês.
+- Ao baixar o modelo em Agente de voz, a versão modificada obtém sherpa-onnx-whisper-tiny.tar.bz2 (~111 MiB) do projeto oficial k2-fsa/sherpa-onnx. Extrai os pesos quantizados, tokens e detector de voz. O GigaAM russo não é usado nesta versão.
+- Respostas da IA orientadas para português do Brasil, preservando regras de segurança, identificadores e comandos.
+- Voz Gemini/OpenRouter: instrução explícita de pronúncia brasileira e cache separado. Algumas mensagens internas não traduzidas podem permanecer na tela; falas locais desconhecidas são substituídas por orientação neutra para consultar a tela.
+- As vozes locais russas e o MiniMax não foram adaptados. Selecione Gemini online para ouvir as respostas em português.
+
+Instalação:
+Este APK tem assinatura de teste própria e o MESMO identificador com.bydmate.app. Não pode atualizar diretamente a versão oficial. Não desinstale o original antes de salvar a configuração pelo BYDMate, confirmar que o arquivo exportado existe e preservar o APK oficial para recuperação. A desinstalação remove dados locais. Backups contendo chaves são privados: não publique nem envie ao chat.
+
+Na versão de teste, configure OpenRouter com uma chave válida, escolha a voz Gemini e baixe o reconhecimento Whisper em Configurações > Agente de voz. Será necessário conceder novamente as permissões, se houve reinstalação. Mantenha o Assistant NG sem acesso ao botão de voz durante os testes para evitar conflito. Não execute dois agentes pelo mesmo botão.
+
+Primeiro teste, carro estacionado: perguntar 'Responda em português: qual é o seu nome?' e conferir a transcrição antes de testar comandos. Depois pedir para criar uma regra DESATIVADA que apenas abra o Waze. Revisar as condições e ações da regra antes de ativar. Os testes automatizados não substituem o teste real de microfone, desempenho ou pronúncia na central. Não use o primeiro teste para acionar vidros, portas ou climatização.
+
+A chave exposta na conversa precisa ser revogada. Nenhuma chave pessoal está embutida no APK ou nos testes. O áudio do reconhecimento local não é enviado à nuvem; o texto reconhecido é enviado ao provedor de IA configurado e o texto da resposta ao serviço de voz online, conforme a arquitetura original.
+
+Reversão: com backup preservado, remover a versão experimental, reinstalar o APK oficial 4.4.1 e restaurar a configuração pelo próprio aplicativo. Alterações sistêmicas ativadas por recursos do BYDMate precisam ser revertidas no próprio app antes da remoção, conforme sua documentação original.
+
+Base e licença: https://github.com/AndyShaman/BYDMate/tree/v4.4.1
+Fonte: commit 9c7821ca9bf17bccdc47c21b1e4f3533e6074866, com patch adjacente.

@@ -1,0 +1,71 @@
+{
+  "version": "4.4.1-pt-voice1",
+  "base_commit": "9c7821ca9bf17bccdc47c21b1e4f3533e6074866",
+  "package": "com.bydmate.app",
+  "min_sdk": 29,
+  "abi": "arm64-v8a",
+  "apk_bytes": 52290188,
+  "sha256": "e9f351965e7f10d8e60f0486f53aea1a97cf6fe4beb9da62c429701547d269e1",
+  "signature_v2_verified": true,
+  "zipalign_verified": true,
+  "uncompressed_payload_identical_to_gradle_apk": true,
+  "tests": [
+    {
+      "suite": "com.bydmate.app.voice.GigaAmPreRollTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "suite": "com.bydmate.app.voice.GigaAmVadConfigTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "suite": "com.bydmate.app.agent.AgentPromptTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "suite": "com.bydmate.app.voice.GigaAmModelManagerTest",
+      "tests": 23,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "suite": "com.bydmate.app.voice.online.OpenRouterTtsBackendTest",
+      "tests": 14,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "suite": "com.bydmate.app.voice.GigaAmSegmenterTest",
+      "tests": 21,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "suite": "com.bydmate.app.agent.AgentPromptHybridTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "suite": "com.bydmate.app.voice.PortugueseVoicePromptsTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "suite": "com.bydmate.app.voice.AsrLoadGuardTest",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0
+    }
+  ],
+  "test_total": 83,
+  "vehicle_microphone_tested": false,
+  "real_tts_pronunciation_tested": false
+}
